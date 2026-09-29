@@ -1,0 +1,1435 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Laboratorio di Fisica 2D</title>
+<style>
+  :root{
+    --bg:#0b1020; --panel:#121a31; --panel2:#0e1526; --line:#22304f;
+    --txt:#e8eefc; --dim:#93a3c4; --acc:#49d1ff; --acc2:#ffb648;
+    --ke:#ff7a59; --pe:#49d1ff; --tot:#9dff8c;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{
+    background:var(--bg); color:var(--txt);
+    font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    overflow:hidden;
+  }
+  #app{display:flex;height:100%;width:100%}
+  #stage{position:relative;flex:1;min-width:0;background:
+    radial-gradient(1200px 800px at 30% 10%, #14203c 0%, #0b1020 60%);}
+  canvas#cv{display:block;width:100%;height:100%;cursor:crosshair;touch-action:none}
+  #hud{position:absolute;left:12px;top:10px;pointer-events:none;
+       font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--dim);
+       text-shadow:0 1px 2px #000a}
+  #hud b{color:var(--txt);font-weight:600}
+  #toast{position:absolute;left:50%;top:14px;transform:translateX(-50%);
+     background:rgba(10,16,32,.88);border:1px solid var(--line);
+     padding:6px 12px;border-radius:8px;color:var(--txt);font-size:12.5px;opacity:0;
+     transition:opacity .25s;pointer-events:none}
+  #toast.on{opacity:1}
+  #pausebadge{position:absolute;right:14px;top:10px;color:var(--acc2);font-weight:700;
+     letter-spacing:.14em;font-size:12px;opacity:0;transition:opacity .2s;pointer-events:none}
+  #pausebadge.on{opacity:1}
+
+  aside#panel{
+    width:330px;flex:0 0 330px;background:var(--panel);border-left:1px solid var(--line);
+    overflow-y:auto;padding:12px 13px 40px;
+  }
+  aside#panel::-webkit-scrollbar{width:9px}
+  aside#panel::-webkit-scrollbar-thumb{background:#243050;border-radius:6px}
+  h1{font-size:15px;margin:2px 0 10px;letter-spacing:.02em}
+  h1 span{color:var(--acc)}
+  .sec{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 10px;margin-bottom:9px}
+  .sec > h2{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--dim);
+            margin:0 0 8px;font-weight:700}
+  .row{display:flex;gap:6px;flex-wrap:wrap}
+  button{
+    background:#1b2745;color:var(--txt);border:1px solid var(--line);border-radius:7px;
+    padding:6px 9px;font-size:12.5px;cursor:pointer;font-family:inherit;transition:.12s;
+  }
+  button:hover{background:#243459;border-color:#31456e}
+  button:active{transform:translateY(1px)}
+  button.on{background:var(--acc);color:#04121c;border-color:var(--acc);font-weight:600}
+  button.wide{flex:1}
+  button.acc{background:#1d3a4d;border-color:#2b5f7d}
+  .tool{display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 4px;flex:1;
+        font-size:10.5px;min-width:0}
+  .tool .ic{font-size:16px;line-height:1}
+  label.ctl{display:block;margin:9px 0 0}
+  label.ctl:first-of-type{margin-top:2px}
+  .lbl{display:flex;justify-content:space-between;font-size:12px;color:var(--dim);margin-bottom:3px}
+  .lbl b{color:var(--txt);font-weight:600;font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%;-webkit-appearance:none;appearance:none;height:4px;border-radius:3px;
+    background:#25314f;outline:none;margin:0}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;
+    background:var(--acc);cursor:pointer;border:2px solid #0b1020}
+  input[type=range]::-moz-range-thumb{width:12px;height:12px;border-radius:50%;background:var(--acc);
+    cursor:pointer;border:2px solid #0b1020}
+  .chk{display:flex;align-items:center;gap:7px;margin:5px 0;font-size:12.5px;color:var(--dim);cursor:pointer}
+  .chk input{accent-color:var(--acc);width:14px;height:14px}
+  #chart{width:100%;height:132px;display:block;background:#0a1020;border:1px solid var(--line);
+         border-radius:8px}
+  .legend{display:flex;gap:10px;margin-top:6px;font-size:11.5px;font-variant-numeric:tabular-nums}
+  .legend div{display:flex;align-items:center;gap:4px;color:var(--dim)}
+  .legend i{width:9px;height:9px;border-radius:2px;display:inline-block}
+  .legend b{color:var(--txt);font-weight:600}
+  .help{font-size:11.5px;color:var(--dim);line-height:1.6}
+  .help b{color:#c8d6f5;font-weight:600}
+  .help kbd{background:#1b2745;border:1px solid var(--line);border-radius:4px;padding:0 4px;
+            font:11px ui-monospace,Menlo,monospace;color:var(--txt)}
+  @media (max-width:860px){
+    #app{flex-direction:column}
+    aside#panel{width:100%;flex:0 0 46%;border-left:none;border-top:1px solid var(--line)}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <canvas id="cv"></canvas>
+    <div id="hud"></div>
+    <div id="pausebadge">● PAUSA</div>
+    <div id="toast"></div>
+  </div>
+
+  <aside id="panel">
+    <h1>Laboratorio di <span>Fisica 2D</span></h1>
+
+    <div class="sec">
+      <h2>Scene pronte</h2>
+      <div class="row">
+        <button class="wide acc" id="sc1">Pendolo di Newton</button>
+        <button class="wide acc" id="sc2">Piano inclinato</button>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <button class="wide acc" id="sc3">Valanga</button>
+        <button class="wide acc" id="sc4">Galleggiamento</button>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <button class="wide" id="scReset">Ricarica scena</button>
+        <button class="wide" id="scClear">Svuota</button>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h2>Strumento</h2>
+      <div class="row" id="tools">
+        <button class="tool on" data-mode="ball"><span class="ic">⚪</span>Palla</button>
+        <button class="tool" data-mode="wall"><span class="ic">📏</span>Muro</button>
+        <button class="tool" data-mode="spring"><span class="ic">🔗</span>Molla</button>
+        <button class="tool" data-mode="pin"><span class="ic">📌</span>Perno</button>
+        <button class="tool" data-mode="erase"><span class="ic">🗑️</span>Elimina</button>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h2>Simulazione</h2>
+      <div class="row">
+        <button class="wide" id="btnPause">⏸ Pausa</button>
+        <button id="btnStep">⏭ Passo</button>
+        <button class="wide" id="btnSlow">🐢 Rallentatore</button>
+      </div>
+      <label class="ctl">
+        <div class="lbl"><span>Velocità del tempo</span><b id="vTime">1.00×</b></div>
+        <input type="range" id="sTime" min="0.02" max="1.5" step="0.01" value="1">
+      </label>
+    </div>
+
+    <div class="sec">
+      <h2>Gravità</h2>
+      <div class="row">
+        <button class="wide" data-g="0">Spazio 0</button>
+        <button class="wide" data-g="1.62">Luna</button>
+        <button class="wide on" data-g="9.81">Terra</button>
+        <button class="wide" data-g="24.79">Giove</button>
+      </div>
+      <label class="ctl">
+        <div class="lbl"><span>g</span><b id="vG">9.81 m/s²</b></div>
+        <input type="range" id="sG" min="0" max="30" step="0.01" value="9.81">
+      </label>
+    </div>
+
+    <div class="sec">
+      <h2>Materiali</h2>
+      <label class="ctl">
+        <div class="lbl"><span>Elasticità (restituzione e)</span><b id="vE">0.70</b></div>
+        <input type="range" id="sE" min="0" max="1" step="0.01" value="0.7">
+      </label>
+      <label class="ctl">
+        <div class="lbl"><span>Attrito (μ)</span><b id="vMu">0.30</b></div>
+        <input type="range" id="sMu" min="0" max="1.2" step="0.01" value="0.3">
+      </label>
+      <label class="ctl">
+        <div class="lbl"><span>Attrito viscoso generico</span><b id="vDrag">0.15</b></div>
+        <input type="range" id="sDrag" min="0" max="2" step="0.01" value="0.15">
+      </label>
+    </div>
+
+    <div class="sec">
+      <h2>Densità dei corpi</h2>
+      <div id="matPresets">
+        <div class="row">
+          <button class="wide" data-rho="0.24">Sughero</button>
+          <button class="wide" data-rho="0.70">Legno</button>
+          <button class="wide on" data-rho="1.20">Plastica</button>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <button class="wide" data-rho="2.70">Alluminio</button>
+          <button class="wide" data-rho="7.80">Ferro</button>
+          <button class="wide" data-rho="11.30">Piombo</button>
+        </div>
+      </div>
+      <label class="ctl">
+        <div class="lbl"><span>Densità ρ del corpo</span><b id="vRho">1.20</b></div>
+        <input type="range" id="sRho" min="0.05" max="14" step="0.01" value="1.2">
+      </label>
+      <div class="row" style="margin-top:7px">
+        <button class="wide" id="btnRhoAll">Applica a tutte le palline</button>
+      </div>
+      <p class="help" style="margin:7px 0 0">La massa segue m = ρ·πr²: cambiando ρ o il raggio cambi l'inerzia
+      negli urti. Valori in kg/m² (densità di superficie), scelti uguali alle densità relative reali.</p>
+    </div>
+
+    <div class="sec">
+      <h2>Fluido circostante</h2>
+      <div id="fluidPresets">
+        <div class="row">
+          <button class="wide on" data-fr="0" data-fl="0">Vuoto</button>
+          <button class="wide" data-fr="0.0012" data-fl="1">Aria</button>
+          <button class="wide" data-fr="1.00" data-fl="0.55">Acqua</button>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <button class="wide" data-fr="0.92" data-fl="0.55">Olio</button>
+          <button class="wide" data-fr="1.42" data-fl="0.55">Miele</button>
+          <button class="wide" data-fr="13.6" data-fl="0.45">Mercurio</button>
+        </div>
+      </div>
+      <label class="ctl">
+        <div class="lbl"><span>Densità ρ del fluido</span><b id="vFR">0.00</b></div>
+        <input type="range" id="sFR" min="0" max="14" step="0.01" value="0">
+      </label>
+      <label class="ctl">
+        <div class="lbl"><span>Livello del fluido</span><b id="vFL">0 %</b></div>
+        <input type="range" id="sFL" min="0" max="1" step="0.01" value="0">
+      </label>
+      <label class="ctl">
+        <div class="lbl"><span>Viscosità del fluido</span><b id="vFV">1.0</b></div>
+        <input type="range" id="sFV" min="0" max="4" step="0.05" value="1">
+      </label>
+      <p class="help" style="margin:8px 0 0">Spinta di Archimede F = ρ<sub>f</sub>·g·A<sub>immersa</sub>.
+      Un corpo galleggia se ρ<sub>corpo</sub> &lt; ρ<sub>fluido</sub>, con frazione immersa pari a
+      ρ<sub>corpo</sub>/ρ<sub>fluido</sub>. Con ρ<sub>f</sub> = 0 sei nel vuoto.</p>
+    </div>
+
+    <div class="sec">
+      <h2>Palline &amp; molle</h2>
+      <label class="ctl">
+        <div class="lbl"><span>Raggio nuova pallina</span><b id="vR">18 px</b></div>
+        <input type="range" id="sR" min="6" max="48" step="1" value="18">
+      </label>
+      <label class="ctl">
+        <div class="lbl"><span>Rigidezza molla k</span><b id="vK">30 N/m</b></div>
+        <input type="range" id="sK" min="2" max="400" step="1" value="30">
+      </label>
+      <label class="ctl">
+        <div class="lbl"><span>Smorzamento molla</span><b id="vSD">1.5</b></div>
+        <input type="range" id="sSD" min="0" max="12" step="0.1" value="1.5">
+      </label>
+      <label class="chk"><input type="checkbox" id="cRigid"> Collega con <b style="color:#c8d6f5">asta rigida</b> (pendoli, catene)</label>
+      <label class="chk"><input type="checkbox" id="cRnd" checked> Raggio casuale alla creazione</label>
+    </div>
+
+    <div class="sec">
+      <h2>Visualizzazione</h2>
+      <label class="chk"><input type="checkbox" id="cVec" checked> Vettori velocità</label>
+      <label class="chk"><input type="checkbox" id="cGrid" checked> Griglia (1 m)</label>
+      <label class="chk"><input type="checkbox" id="cTrail"> Scie</label>
+      <label class="chk"><input type="checkbox" id="cIds"> Etichette massa</label>
+    </div>
+
+    <div class="sec">
+      <h2>Energia in tempo reale</h2>
+      <canvas id="chart"></canvas>
+      <div class="legend">
+        <div><i style="background:var(--ke)"></i>Cinetica <b id="lKe">0 J</b></div>
+        <div><i style="background:var(--pe)"></i>Potenziale <b id="lPe">0 J</b></div>
+        <div><i style="background:var(--tot)"></i>Totale <b id="lTot">0 J</b></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h2>Comandi</h2>
+      <p class="help">
+        <b>Clic</b> crea una pallina · <b>clic e trascina</b> la lancia (la freccia mostra la spinta) ·
+        trascina una pallina esistente per <b>spostarla e scagliarla</b>.<br>
+        <b>Tasto destro + trascina</b>: disegna muri e rampe in qualsiasi direzione.<br>
+        <b>Molla</b>: clic sulla prima pallina, poi sulla seconda. Clic nel vuoto = <b>perno fisso</b>
+        a cui agganciare (pendoli e catene).<br>
+        <b>Doppio clic</b> su una pallina: la fissa / la libera. <b>Rotella</b>: cambia il raggio.<br>
+        Ogni nuova pallina nasce con la <b>densità</b> impostata sotto: cambiala e lanciane due diverse
+        nello stesso fluido per confrontarle.<br>
+        <kbd>spazio</kbd> pausa · <kbd>.</kbd> un passo · <kbd>S</kbd> rallentatore ·
+        <kbd>V</kbd> vettori · <kbd>R</kbd> ricarica · <kbd>C</kbd> svuota ·
+        <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd> scene.
+      </p>
+    </div>
+  </aside>
+</div>
+
+<script>
+"use strict";
+/* =========================================================================
+   LABORATORIO DI FISICA 2D — motore scritto da zero (nessuna libreria)
+   Integratore a sottopassi + risoluzione posizionale dei vincoli (XPBD-like):
+     1. forze (gravità, molle di Hooke, attrito viscoso) -> velocità
+     2. integrazione delle posizioni
+     3. risoluzione dei contatti (compenetrazione + attrito statico)
+     4. vincoli rigidi (aste)
+     5. velocità ricavate dallo spostamento effettivo
+     6. passata di velocità: restituzione + attrito dinamico
+   ========================================================================= */
+
+const PPM = 60;          // pixel per metro
+const CD = 0.85;         // coefficiente di resistenza idrodinamica
+const WALL_R = 4;        // semispessore dei muri (capsula)
+const VMAX = 8000;       // limite di sicurezza [px/s]
+
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const chartCv = document.getElementById('chart');
+const cctx = chartCv.getContext('2d');
+
+let W = 800, H = 600, DPR = 1;
+
+/* ---------------------------------------------------------------- stato */
+const P = {
+  g: 9.81, e: 0.70, mu: 0.30, drag: 0.15,
+  timeScale: 1, paused: false,
+  radius: 18, randomR: true, k: 30, springDamp: 1.5, rigid: false,
+  bodyRho: 1.20,           // densità di superficie dei corpi [kg/m²]
+  fluidRho: 0, fluidLevel: 0, fluidVisc: 1,   // fluido: densità, livello (0..1), viscosità
+  showVec: true, showGrid: true, showTrail: false, showIds: false,
+  substeps: 10
+};
+
+const world = { balls: [], walls: [], springs: [] };
+let nextId = 1;
+let currentScene = 'sc1';
+
+const COLORS = ['#ff7a59','#49d1ff','#9dff8c','#ffd166','#c792ea','#ff8fb1','#6ee7d6','#f6a5c0'];
+let colorIdx = 0;
+
+function addBall(x, y, r, opts = {}) {
+  const rm = r / PPM;
+  const rho = opts.density != null ? opts.density : P.bodyRho;
+  const m = Math.PI * rm * rm * rho;
+  const b = {
+    id: nextId++, x, y, px: x, py: y, vx: opts.vx || 0, vy: opts.vy || 0,
+    vxPre: 0, vyPre: 0, sx: 0, sy: 0, r, m, density: rho,
+    pinned: !!opts.pinned, ghost: !!opts.ghost, grabbed: false,
+    color: opts.color || COLORS[(colorIdx++) % COLORS.length],
+    trail: []
+  };
+  world.balls.push(b);
+  return b;
+}
+function addWall(x1, y1, x2, y2) {
+  const w = { id: nextId++, x1, y1, x2, y2 };
+  world.walls.push(w);
+  return w;
+}
+function addSpring(a, b, opts = {}) {
+  if (!a || !b || a === b) return null;
+  for (const s of world.springs)
+    if ((s.a === a && s.b === b) || (s.a === b && s.b === a)) return null;
+  const rest = opts.rest != null ? opts.rest : Math.hypot(b.x - a.x, b.y - a.y);
+  const s = {
+    id: nextId++, a, b, rest: Math.max(rest, 1),
+    rigid: opts.rigid != null ? opts.rigid : P.rigid,
+    k: opts.k != null ? opts.k : P.k,
+    damp: opts.damp != null ? opts.damp : P.springDamp
+  };
+  world.springs.push(s);
+  return s;
+}
+function removeBall(b) {
+  const i = world.balls.indexOf(b);
+  if (i >= 0) world.balls.splice(i, 1);
+  for (let j = world.springs.length - 1; j >= 0; j--)
+    if (world.springs[j].a === b || world.springs[j].b === b) world.springs.splice(j, 1);
+}
+function clearWorld() { world.balls.length = 0; world.walls.length = 0; world.springs.length = 0; }
+
+const invW = b => (b.pinned || b.grabbed) ? 0 : 1 / b.m;
+
+/* ------------------------------------------------------------ broadphase */
+const grid = new Map();
+const GKEY = (i, j) => (i + 600) * 1400 + (j + 600);
+
+function buildGrid(cell) {
+  grid.clear();
+  for (const b of world.balls) {
+    if (b.ghost) continue;
+    const key = GKEY(Math.floor(b.x / cell), Math.floor(b.y / cell));
+    let arr = grid.get(key);
+    if (!arr) { arr = []; grid.set(key, arr); }
+    arr.push(b);
+  }
+}
+
+/* -------------------------------------------------------------- contatti */
+const contacts = [];
+let nContacts = 0;
+/* d0 = compenetrazione già presente a inizio sottopasso. Solo la parte nata dal moto di questo
+   sottopasso (d − d0) può generare velocità; il resto è puro sbrogliamento, così due palline
+   create una sull'altra si separano senza essere sparate via.                              */
+function pushContact(a, b, wall, nx, ny, d, d0) {
+  let c = contacts[nContacts];
+  if (!c) { c = {}; contacts[nContacts] = c; }
+  nContacts++;
+  c.a = a; c.b = b; c.wall = wall;
+  c.nx = nx; c.ny = ny; c.d = d; c.dTot = 0; c.dSoft = 0;
+  c.softLeft = Math.max(0, d - d0);
+  const rvx = a.vxPre - (b ? b.vxPre : 0);
+  const rvy = a.vyPre - (b ? b.vyPre : 0);
+  c.vnPre = rvx * nx + rvy * ny;
+  return c;
+}
+
+function closestOnSeg(px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const len2 = dx * dx + dy * dy;
+  let t = len2 > 1e-9 ? ((px - x1) * dx + (py - y1) * dy) / len2 : 0;
+  t = t < 0 ? 0 : t > 1 ? 1 : t;
+  return [x1 + dx * t, y1 + dy * t];
+}
+
+const MARGIN = 2.5;   // tolleranza di rilevamento
+
+function detect() {
+  nContacts = 0;
+  const balls = world.balls;
+
+  // --- bordi del mondo (normale rivolta verso l'interno)
+  for (const b of balls) {
+    if (b.ghost) continue;
+    let d;
+    d = b.r - b.x;       if (d > -MARGIN) pushContact(b, null, null, 1, 0, d, b.r - b.px);
+    d = b.x + b.r - W;   if (d > -MARGIN) pushContact(b, null, null, -1, 0, d, b.px + b.r - W);
+    d = b.r - b.y;       if (d > -MARGIN) pushContact(b, null, null, 0, 1, d, b.r - b.py);
+    d = b.y + b.r - H;   if (d > -MARGIN) pushContact(b, null, null, 0, -1, d, b.py + b.r - H);
+  }
+
+  // --- muri (segmenti-capsula)
+  for (const w of world.walls) {
+    for (const b of balls) {
+      if (b.ghost) continue;
+      const [cx, cy] = closestOnSeg(b.x, b.y, w.x1, w.y1, w.x2, w.y2);
+      let nx = b.x - cx, ny = b.y - cy;
+      let dist = Math.hypot(nx, ny);
+      const rad = b.r + WALL_R;
+      if (dist > rad + MARGIN) continue;
+      if (dist < 1e-6) {                       // centro sul segmento: usa la perpendicolare
+        const sx = w.x2 - w.x1, sy = w.y2 - w.y1;
+        const sl = Math.hypot(sx, sy) || 1;
+        nx = -sy / sl; ny = sx / sl; dist = 0;
+      } else { nx /= dist; ny /= dist; }
+      const [ox, oy] = closestOnSeg(b.px, b.py, w.x1, w.y1, w.x2, w.y2);
+      pushContact(b, null, w, nx, ny, rad - dist, rad - Math.hypot(b.px - ox, b.py - oy));
+    }
+  }
+
+  // --- palla/palla con griglia
+  let maxR = 1;
+  for (const b of balls) if (!b.ghost && b.r > maxR) maxR = b.r;
+  const cell = 2 * maxR + 4;
+  buildGrid(cell);
+  for (const a of balls) {
+    if (a.ghost) continue;
+    const ci = Math.floor(a.x / cell), cj = Math.floor(a.y / cell);
+    for (let i = ci - 1; i <= ci + 1; i++) for (let j = cj - 1; j <= cj + 1; j++) {
+      const arr = grid.get(GKEY(i, j));
+      if (!arr) continue;
+      for (const b of arr) {
+        if (b.id <= a.id) continue;
+        let nx = a.x - b.x, ny = a.y - b.y;
+        const dist = Math.hypot(nx, ny);
+        const rad = a.r + b.r;
+        if (dist > rad + MARGIN) continue;
+        if (dist < 1e-6) { nx = 0; ny = -1; }
+        else { nx /= dist; ny /= dist; }
+        pushContact(a, b, null, nx, ny, rad - dist,
+                    rad - Math.hypot(a.px - b.px, a.py - b.py));
+      }
+    }
+  }
+}
+
+/* aggiorna la geometria del contatto sulle posizioni correnti */
+function refresh(c) {
+  const a = c.a, b = c.b, w = c.wall;
+  if (b) {
+    let nx = a.x - b.x, ny = a.y - b.y;
+    const dist = Math.hypot(nx, ny);
+    if (dist < 1e-6) return;
+    c.nx = nx / dist; c.ny = ny / dist; c.d = a.r + b.r - dist;
+  } else if (w) {
+    const [cx, cy] = closestOnSeg(a.x, a.y, w.x1, w.y1, w.x2, w.y2);
+    let nx = a.x - cx, ny = a.y - cy;
+    const dist = Math.hypot(nx, ny);
+    if (dist < 1e-6) return;
+    c.nx = nx / dist; c.ny = ny / dist; c.d = a.r + WALL_R - dist;
+  } else {
+    if (c.nx === 1) c.d = a.r - a.x;
+    else if (c.nx === -1) c.d = a.x + a.r - W;
+    else if (c.ny === 1) c.d = a.r - a.y;
+    else c.d = a.y + a.r - H;
+  }
+}
+
+function solveContacts(withFriction) {
+  for (let i = 0; i < nContacts; i++) {
+    const c = contacts[i];
+    refresh(c);
+    const d = c.d;
+    if (d <= 0) continue;
+    const a = c.a, b = c.b;
+    const wa = invW(a), wb = b ? invW(b) : 0;
+    const wsum = wa + wb;
+    if (wsum <= 0) continue;
+    // Una compenetrazione grossolana viene riassorbita in più sottopassi, e la parte già presente
+    // a inizio sottopasso vale come puro sbrogliamento: sposta i corpi ma non genera velocità.
+    // Il rimbalzo resta corretto perché la restituzione usa la velocità d'impatto (vnPre).
+    const rMin = Math.min(a.r, b ? b.r : a.r);
+    const dApply = Math.min(d, 0.25 * rMin);
+    const soft = Math.min(dApply, c.softLeft);       // quota che può produrre velocità
+    c.softLeft -= soft;
+    const exc = (dApply - soft) / wsum;              // quota di solo sbrogliamento
+    const k = dApply / wsum, nx = c.nx, ny = c.ny;
+    a.x += nx * k * wa; a.y += ny * k * wa;
+    a.sx += nx * exc * wa; a.sy += ny * exc * wa;
+    if (b) {
+      b.x -= nx * k * wb; b.y -= ny * k * wb;
+      b.sx -= nx * exc * wb; b.sy -= ny * exc * wb;
+    }
+    c.dTot += dApply;
+    c.dSoft += soft;
+
+    if (withFriction && P.mu > 0) {
+      let rdx = (a.x - a.px) - (b ? (b.x - b.px) : 0);
+      let rdy = (a.y - a.py) - (b ? (b.y - b.py) : 0);
+      const dn = rdx * nx + rdy * ny;
+      let tx = rdx - dn * nx, ty = rdy - dn * ny;
+      const tl = Math.hypot(tx, ty);
+      if (tl > 1e-7) {
+        const corr = Math.min(tl, P.mu * soft) / wsum;
+        tx /= tl; ty /= tl;
+        a.x -= tx * corr * wa; a.y -= ty * corr * wa;
+        if (b) { b.x += tx * corr * wb; b.y += ty * corr * wb; }
+      }
+    }
+  }
+}
+
+function solveRods() {
+  for (const s of world.springs) {
+    if (!s.rigid) continue;
+    const a = s.a, b = s.b;
+    const wa = invW(a), wb = invW(b), wsum = wa + wb;
+    if (wsum <= 0) continue;
+    let nx = b.x - a.x, ny = b.y - a.y;
+    const dist = Math.hypot(nx, ny);
+    if (dist < 1e-9) continue;
+    nx /= dist; ny /= dist;
+    const corr = (dist - s.rest) / wsum;
+    a.x += nx * corr * wa; a.y += ny * corr * wa;
+    b.x -= nx * corr * wb; b.y -= ny * corr * wb;
+  }
+}
+
+function velocityPass(h) {
+  const gth = 2 * Math.abs(P.g * PPM) * h;   // soglia anti-jitter
+  for (let i = 0; i < nContacts; i++) {
+    const c = contacts[i];
+    if (c.dTot <= 0) continue;
+    const a = c.a, b = c.b, nx = c.nx, ny = c.ny;
+    const wa = invW(a), wb = b ? invW(b) : 0, wsum = wa + wb;
+    if (wsum <= 0) continue;
+
+    // restituzione
+    let rvx = a.vx - (b ? b.vx : 0), rvy = a.vy - (b ? b.vy : 0);
+    const vn = rvx * nx + rvy * ny;
+    let target = -P.e * c.vnPre;
+    if (Math.abs(c.vnPre) < gth) target = 0;
+    const dvn = -vn + Math.max(target, 0);
+    if (dvn > 0) {
+      const j = dvn / wsum;
+      a.vx += nx * j * wa; a.vy += ny * j * wa;
+      if (b) { b.vx -= nx * j * wb; b.vy -= ny * j * wb; }
+    }
+
+    // attrito dinamico
+    if (P.mu > 0) {
+      rvx = a.vx - (b ? b.vx : 0); rvy = a.vy - (b ? b.vy : 0);
+      const vn2 = rvx * nx + rvy * ny;
+      let tvx = rvx - vn2 * nx, tvy = rvy - vn2 * ny;
+      const tl = Math.hypot(tvx, tvy);
+      if (tl > 1e-6) {
+        const dv = Math.min(tl, P.mu * c.dSoft / h);
+        const j = dv / wsum;
+        tvx /= tl; tvy /= tl;
+        a.vx -= tvx * j * wa; a.vy -= tvy * j * wa;
+        if (b) { b.vx += tvx * j * wb; b.vy += tvy * j * wb; }
+      }
+    }
+  }
+}
+
+function applySpringForces(h) {
+  for (const s of world.springs) {
+    if (s.rigid) continue;
+    const a = s.a, b = s.b;
+    const wa = invW(a), wb = invW(b);
+    if (wa + wb <= 0) continue;
+    let nx = b.x - a.x, ny = b.y - a.y;
+    const dist = Math.hypot(nx, ny);
+    if (dist < 1e-9) continue;
+    nx /= dist; ny /= dist;
+    const stretch = (dist - s.rest) / PPM;              // m
+    const rv = ((b.vx - a.vx) * nx + (b.vy - a.vy) * ny) / PPM;  // m/s
+    const F = s.k * stretch + s.damp * rv;              // N (positiva = a tirata verso b)
+    const imp = F * h * PPM;                            // px/s per (1/kg)
+    a.vx += nx * imp * wa; a.vy += ny * imp * wa;
+    b.vx -= nx * imp * wb; b.vy -= ny * imp * wb;
+  }
+}
+
+/* ------------------------------------------------------ fluido e Archimede
+   Il fluido riempie il mondo dal fondo fino al livello impostato.
+   c = quota del centro del disco sopra il pelo libero (m, positiva se emerso).
+   subArea(r,c) = area immersa del disco; buoyG(r,c) = ∫ area d(quota),
+   che serve per l'energia potenziale della spinta.                          */
+function subArea(r, c) {
+  if (c >= r) return 0;
+  if (c <= -r) return Math.PI * r * r;
+  return r * r * Math.acos(c / r) - c * Math.sqrt(Math.max(0, r * r - c * c));
+}
+function buoyG(r, c) {
+  if (c >= r) return 0;
+  if (c <= -r) return -Math.PI * r * r * c;
+  const s = Math.sqrt(Math.max(0, r * r - c * c));
+  const phi = r * r * c * Math.acos(c / r) - r * r * s + Math.pow(r * r - c * c, 1.5) / 3;
+  return -phi;
+}
+const fluidSurfaceY = () => H - P.fluidLevel * H;
+
+function applyFluid(h) {
+  if (P.fluidRho <= 0 || P.fluidLevel <= 0) return;
+  const surfY = fluidSurfaceY();
+  for (const b of world.balls) {
+    if (b.ghost || b.pinned || b.grabbed) continue;
+    const rm = b.r / PPM;
+    const c = (surfY - b.y) / PPM;
+    if (c >= rm) continue;                       // completamente emerso
+    const A = subArea(rm, c);
+    if (A <= 0) continue;
+    // spinta di Archimede: F = rho_f * g * A_immersa, verso l'alto
+    b.vy -= (P.fluidRho * P.g * A / b.m) * PPM * h;
+    // resistenza del fluido: termine viscoso (lineare) + termine inerziale (quadratico)
+    if (P.fluidVisc > 0) {
+      const vx = b.vx / PPM, vy = b.vy / PPM;
+      const sp = Math.hypot(vx, vy);
+      if (sp > 1e-6) {
+        const frac = A / (Math.PI * rm * rm);
+        const Fd = (0.5 * CD * (2 * rm) * sp * sp + 3 * rm * sp) *
+                   P.fluidRho * P.fluidVisc * frac;
+        let dv = (Fd / b.m) * h;
+        if (dv > sp) dv = sp;                    // mai invertire il moto
+        b.vx -= (vx / sp) * dv * PPM;
+        b.vy -= (vy / sp) * dv * PPM;
+      }
+    }
+  }
+}
+
+function substep(h) {
+  const g = P.g * PPM;
+  const damp = 1 / (1 + P.drag * h);
+
+  applySpringForces(h);
+  applyFluid(h);
+
+  for (const b of world.balls) {
+    b.vxPre = b.vx; b.vyPre = b.vy; b.sx = 0; b.sy = 0;
+    if (b.pinned || b.grabbed) { b.px = b.x; b.py = b.y; if (b.pinned) { b.vx = 0; b.vy = 0; } continue; }
+    b.vy += g * h;
+    b.vx *= damp; b.vy *= damp;
+    b.px = b.x; b.py = b.y;
+    b.x += b.vx * h; b.y += b.vy * h;
+  }
+
+  detect();
+  solveContacts(false);
+  solveRods();
+  solveContacts(true);
+  solveRods();
+
+  for (const b of world.balls) {
+    if (b.pinned || b.grabbed) continue;
+    b.vx = (b.x - b.px - b.sx) / h;
+    b.vy = (b.y - b.py - b.sy) / h;
+  }
+
+  velocityPass(h);
+
+  // sicurezza numerica
+  for (const b of world.balls) {
+    if (!isFinite(b.x) || !isFinite(b.y) || !isFinite(b.vx) || !isFinite(b.vy)) {
+      b.x = Math.min(Math.max(b.r, isFinite(b.px) ? b.px : W / 2), W - b.r);
+      b.y = Math.min(Math.max(b.r, isFinite(b.py) ? b.py : H / 2), H - b.r);
+      b.vx = 0; b.vy = 0;
+    }
+    const sp = Math.hypot(b.vx, b.vy);
+    if (sp > VMAX) { b.vx *= VMAX / sp; b.vy *= VMAX / sp; }
+    if (!b.ghost) {
+      if (b.x < b.r) b.x = b.r; else if (b.x > W - b.r) b.x = W - b.r;
+      if (b.y < b.r) b.y = b.r; else if (b.y > H - b.r) b.y = H - b.r;
+    }
+  }
+}
+
+function step(dt) {
+  const hMax = 1 / (60 * P.substeps);
+  const n = Math.max(1, Math.min(60, Math.ceil(dt / hMax)));
+  const h = dt / n;
+  for (let i = 0; i < n; i++) substep(h);
+}
+
+/* --------------------------------------------------------------- energia */
+function energy() {
+  let ke = 0, pe = 0;
+  const fluid = P.fluidRho > 0 && P.fluidLevel > 0;
+  const surfY = fluidSurfaceY();
+  for (const b of world.balls) {
+    if (b.ghost || b.pinned) continue;
+    const v2 = (b.vx * b.vx + b.vy * b.vy) / (PPM * PPM);
+    ke += 0.5 * b.m * v2;
+    pe += b.m * P.g * ((H - b.y) / PPM);
+    if (fluid) pe += P.fluidRho * P.g * buoyG(b.r / PPM, (surfY - b.y) / PPM);
+  }
+  for (const s of world.springs) {
+    if (s.rigid) continue;
+    const d = Math.hypot(s.b.x - s.a.x, s.b.y - s.a.y);
+    const x = (d - s.rest) / PPM;
+    pe += 0.5 * s.k * x * x;
+  }
+  return { ke, pe, tot: ke + pe };
+}
+
+/* ------------------------------------------------------------- rendering */
+function drawArrow(x, y, dx, dy, color, width) {
+  const len = Math.hypot(dx, dy);
+  if (len < 1.5) return;
+  const ux = dx / len, uy = dy / len;
+  const head = Math.min(9, len * 0.38);
+  ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x, y); ctx.lineTo(x + dx - ux * head * 0.6, y + dy - uy * head * 0.6);
+  ctx.stroke();
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x + dx, y + dy);
+  ctx.lineTo(x + dx - ux * head - uy * head * 0.45, y + dy - uy * head + ux * head * 0.45);
+  ctx.lineTo(x + dx - ux * head + uy * head * 0.45, y + dy - uy * head - ux * head * 0.45);
+  ctx.closePath(); ctx.fill();
+}
+
+function drawSpring(s) {
+  const a = s.a, b = s.b;
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const ux = dx / len, uy = dy / len;
+  if (s.rigid) {
+    ctx.strokeStyle = '#8fa4cc'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    return;
+  }
+  const stretch = (len - s.rest) / s.rest;
+  const t = Math.max(-1, Math.min(1, stretch * 2));
+  const col = t > 0 ? `rgb(${Math.round(180 + 75 * t)},${Math.round(180 - 90 * t)},${Math.round(150 - 100 * t)})`
+                    : `rgb(${Math.round(160 + 60 * t)},${Math.round(200 + 40 * t)},255)`;
+  const coils = Math.max(6, Math.round(s.rest / 14));
+  const amp = Math.min(9, Math.max(3, 140 / Math.max(len, 20)) * 2.2);
+  ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(a.x, a.y);
+  for (let i = 1; i < coils; i++) {
+    const f = i / coils;
+    const off = (i % 2 === 0 ? 1 : -1) * amp;
+    ctx.lineTo(a.x + dx * f - uy * off, a.y + dy * f + ux * off);
+  }
+  ctx.lineTo(b.x, b.y);
+  ctx.stroke();
+}
+
+function render() {
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+
+  if (P.showGrid) {
+    ctx.strokeStyle = 'rgba(120,160,220,.075)'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = 0; x <= W; x += PPM) { ctx.moveTo(Math.round(x) + .5, 0); ctx.lineTo(Math.round(x) + .5, H); }
+    for (let y = H; y >= 0; y -= PPM) { ctx.moveTo(0, Math.round(y) + .5); ctx.lineTo(W, Math.round(y) + .5); }
+    ctx.stroke();
+  }
+
+  drawFluid(0);
+
+  // scie
+  if (P.showTrail) {
+    ctx.lineWidth = 2; ctx.lineCap = 'round';
+    for (const b of world.balls) {
+      if (b.trail.length < 4) continue;
+      ctx.strokeStyle = b.color + '55';
+      ctx.beginPath();
+      ctx.moveTo(b.trail[0], b.trail[1]);
+      for (let i = 2; i < b.trail.length; i += 2) ctx.lineTo(b.trail[i], b.trail[i + 1]);
+      ctx.stroke();
+    }
+  }
+
+  // muri
+  ctx.lineCap = 'round';
+  for (const w of world.walls) {
+    ctx.strokeStyle = '#3c527f'; ctx.lineWidth = WALL_R * 2 + 3;
+    ctx.beginPath(); ctx.moveTo(w.x1, w.y1); ctx.lineTo(w.x2, w.y2); ctx.stroke();
+    ctx.strokeStyle = '#7f9ad0'; ctx.lineWidth = WALL_R * 2 - 2;
+    ctx.beginPath(); ctx.moveTo(w.x1, w.y1); ctx.lineTo(w.x2, w.y2); ctx.stroke();
+  }
+
+  for (const s of world.springs) drawSpring(s);
+
+  // palline
+  for (const b of world.balls) {
+    if (b.ghost) {
+      ctx.fillStyle = '#8fa4cc';
+      ctx.beginPath(); ctx.arc(b.x, b.y, 5, 0, 6.2832); ctx.fill();
+      ctx.strokeStyle = '#4b5f8c'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(b.x, b.y, 8, 0, 6.2832); ctx.stroke();
+      continue;
+    }
+    const g = ctx.createRadialGradient(b.x - b.r * .35, b.y - b.r * .4, b.r * .1, b.x, b.y, b.r);
+    g.addColorStop(0, '#ffffff');
+    g.addColorStop(.28, b.color);
+    g.addColorStop(1, shade(b.color, -.45));
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, 6.2832); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 1;
+    ctx.stroke();
+    if (b.pinned) {
+      ctx.strokeStyle = '#ffb648'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(b.x, b.y, b.r + 3.5, 0, 6.2832); ctx.stroke();
+    }
+    if (b === ui.springFrom) {
+      ctx.strokeStyle = '#49d1ff'; ctx.lineWidth = 2.5; ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.arc(b.x, b.y, b.r + 6, 0, 6.2832); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    if (P.showIds) {
+      ctx.fillStyle = 'rgba(0,0,0,.62)'; ctx.textAlign = 'center';
+      if (b.r >= 24) {
+        ctx.font = '700 9.5px ui-monospace,monospace';
+        ctx.fillText('ρ ' + b.density.toFixed(2), b.x, b.y - 1);
+        ctx.font = '600 9px ui-monospace,monospace';
+        ctx.fillText(b.m.toFixed(2) + ' kg', b.x, b.y + 9);
+      } else if (b.r >= 13) {
+        ctx.font = '700 9px ui-monospace,monospace';
+        ctx.fillText('ρ' + b.density.toFixed(1), b.x, b.y + 3);
+      } else {
+        ctx.font = '700 8px ui-monospace,monospace';
+        ctx.fillText(b.density.toFixed(1), b.x, b.y + 3);
+      }
+      ctx.textAlign = 'left';
+    }
+  }
+
+  drawFluid(1);
+
+  // vettori velocità
+  if (P.showVec) {
+    for (const b of world.balls) {
+      if (b.ghost || b.pinned) continue;
+      drawArrow(b.x, b.y, b.vx * 0.13, b.vy * 0.13, 'rgba(255,255,255,.85)', 2);
+    }
+  }
+
+  // anteprime di interazione
+  if (ui.mode === 'launch') {
+    const dx = ui.mx - ui.sx, dy = ui.my - ui.sy;
+    ctx.setLineDash([5, 5]);
+    ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(ui.sx, ui.sy, ui.newR, 0, 6.2832); ctx.stroke();
+    ctx.setLineDash([]);
+    drawArrow(ui.sx, ui.sy, dx, dy, '#ffd166', 2.5);
+    ctx.fillStyle = '#ffd166'; ctx.font = '11px ui-monospace,monospace';
+    ctx.fillText((Math.hypot(dx, dy) * LAUNCH / PPM).toFixed(1) + ' m/s', ui.mx + 10, ui.my - 8);
+  }
+  if (ui.mode === 'wall') {
+    ctx.strokeStyle = 'rgba(160,190,240,.75)'; ctx.lineWidth = WALL_R * 2;
+    ctx.beginPath(); ctx.moveTo(ui.sx, ui.sy); ctx.lineTo(ui.mx, ui.my); ctx.stroke();
+    ctx.fillStyle = '#9ec0f0'; ctx.font = '11px ui-monospace,monospace';
+    const L = Math.hypot(ui.mx - ui.sx, ui.my - ui.sy) / PPM;
+    const ang = -Math.atan2(ui.my - ui.sy, ui.mx - ui.sx) * 180 / Math.PI;
+    ctx.fillText(L.toFixed(2) + ' m · ' + ang.toFixed(0) + '°', ui.mx + 10, ui.my - 8);
+  }
+  if (ui.springFrom) {
+    ctx.strokeStyle = 'rgba(73,209,255,.5)'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(ui.springFrom.x, ui.springFrom.y); ctx.lineTo(ui.mx, ui.my); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+function fluidRGB() {
+  const r = P.fluidRho;
+  if (r < 1.05) return '70,155,225';      // acqua
+  if (r < 2.5) return '214,164,52';       // olio / miele
+  return '176,186,200';                   // metallo liquido
+}
+/* layer 0 = sotto le palline, layer 1 = velo sopra (effetto immersione) */
+function drawFluid(layer) {
+  if (P.fluidRho < 0.01 || P.fluidLevel <= 0) return;
+  const y = fluidSurfaceY(), rgb = fluidRGB();
+  if (layer === 0) {
+    const g = ctx.createLinearGradient(0, y, 0, H);
+    g.addColorStop(0, 'rgba(' + rgb + ',.30)');
+    g.addColorStop(1, 'rgba(' + rgb + ',.46)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, y, W, H - y);
+  } else {
+    ctx.fillStyle = 'rgba(' + rgb + ',.17)';
+    ctx.fillRect(0, y, W, H - y);
+    ctx.strokeStyle = 'rgba(' + rgb + ',.95)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, y + 1); ctx.lineTo(W, y + 1); ctx.stroke();
+    ctx.fillStyle = 'rgba(' + rgb + ',1)';
+    ctx.font = '600 11px ui-monospace,monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText('fluido  ρ = ' + P.fluidRho.toFixed(2) + ' kg/m²', W - 10, y - 7);
+    ctx.textAlign = 'left';
+  }
+}
+
+function shade(hex, amt) {
+  const n = parseInt(hex.slice(1), 16);
+  let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  r = Math.round(r + (amt < 0 ? r * amt : (255 - r) * amt));
+  g = Math.round(g + (amt < 0 ? g * amt : (255 - g) * amt));
+  b = Math.round(b + (amt < 0 ? b * amt : (255 - b) * amt));
+  return 'rgb(' + r + ',' + g + ',' + b + ')';
+}
+
+/* ---------------------------------------------------------- grafico energia */
+const HIST = 300;
+const hist = { ke: [], pe: [], tot: [] };
+function sampleEnergy() {
+  const E = energy();
+  hist.ke.push(E.ke); hist.pe.push(E.pe); hist.tot.push(E.tot);
+  if (hist.ke.length > HIST) { hist.ke.shift(); hist.pe.shift(); hist.tot.shift(); }
+  document.getElementById('lKe').textContent = fmtJ(E.ke);
+  document.getElementById('lPe').textContent = fmtJ(E.pe);
+  document.getElementById('lTot').textContent = fmtJ(E.tot);
+  return E;
+}
+const fmtJ = v => (Math.abs(v) >= 100 ? v.toFixed(0) : Math.abs(v) >= 10 ? v.toFixed(1) : v.toFixed(2)) + ' J';
+
+let chartW = 300, chartH = 132;
+function drawChart() {
+  cctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  cctx.clearRect(0, 0, chartW, chartH);
+  let max = 1e-6;
+  for (const v of hist.tot) if (v > max) max = v;
+  for (const v of hist.ke) if (v > max) max = v;
+  for (const v of hist.pe) if (v > max) max = v;
+  max *= 1.12;
+
+  cctx.strokeStyle = 'rgba(120,160,220,.13)'; cctx.lineWidth = 1;
+  cctx.beginPath();
+  for (let i = 1; i < 4; i++) { const y = chartH * i / 4; cctx.moveTo(0, y); cctx.lineTo(chartW, y); }
+  cctx.stroke();
+  cctx.fillStyle = 'rgba(147,163,196,.75)';
+  cctx.font = '9px ui-monospace,monospace';
+  cctx.fillText(max.toFixed(max < 10 ? 1 : 0) + ' J', 4, 10);
+
+  const line = (arr, color, w) => {
+    if (arr.length < 2) return;
+    cctx.strokeStyle = color; cctx.lineWidth = w; cctx.lineJoin = 'round';
+    cctx.beginPath();
+    for (let i = 0; i < arr.length; i++) {
+      const x = (i / (HIST - 1)) * chartW;
+      const y = chartH - (arr[i] / max) * (chartH - 6) - 3;
+      i ? cctx.lineTo(x, y) : cctx.moveTo(x, y);
+    }
+    cctx.stroke();
+  };
+  line(hist.pe, '#49d1ff', 1.6);
+  line(hist.ke, '#ff7a59', 1.6);
+  line(hist.tot, '#9dff8c', 2);
+}
+
+/* ------------------------------------------------------------------ scene */
+function sceneNewton() {
+  clearWorld();
+  setParams({ g: 9.81, e: 1.0, mu: 0, drag: 0 });
+  P.substeps = 26;
+  const n = 5, r = Math.min(24, W / 34);
+  const ay = Math.max(40, H * 0.14);
+  // micro-gioco proporzionale al raggio: gli urti avvengono in sequenza, non tutti insieme
+  const gap = Math.max(0.8, r * 0.12);
+  const sp = 2 * r + gap;
+  const x0 = W / 2 - (n - 1) * sp / 2;
+  const th = 55 * Math.PI / 180;
+  // lunghezza dei fili: la sfera sollevata deve restare dentro il mondo e non toccare il fondo
+  const L = Math.max(60, Math.min(0.46 * H, 300,
+                                  (x0 - r - 10) / Math.sin(th),
+                                  H - ay - r - 10));
+  for (let i = 0; i < n; i++) {
+    const x = x0 + i * sp;
+    const anchor = addBall(x, ay, 6, { pinned: true, ghost: true });
+    const ball = addBall(x, ay + L, r, { color: COLORS[i % COLORS.length] });
+    addSpring(anchor, ball, { rigid: true, rest: L });
+    if (i === 0) {   // solleva la prima di 55°
+      ball.x = anchor.x - L * Math.sin(th);
+      ball.y = anchor.y + L * Math.cos(th);
+      ball.px = ball.x; ball.py = ball.y;
+    }
+  }
+  toast('Pendolo di Newton — e = 1, senza attrito: la quantità di moto attraversa la fila.');
+}
+
+function sceneRamp() {
+  clearWorld();
+  setParams({ g: 9.81, e: 0.25, mu: 0.22, drag: 0.03 });
+  P.substeps = 12;
+  const x1 = W * 0.08, y1 = H * 0.22, x2 = W * 0.66, y2 = H * 0.80;
+  const xEnd = W - 14;
+  addWall(x1, y1, x2, y2);
+  addWall(x2 - 2, y2, xEnd, y2);                 // pianoro di arrivo
+  addWall(xEnd, y2, xEnd, y2 - 90);              // sponda di fine corsa
+  const ux = (x2 - x1), uy = (y2 - y1), L = Math.hypot(ux, uy);
+  const nx = uy / L, ny = -ux / L;                              // normale al piano (verso l'alto)
+  const put = (t, r, color) => {
+    const px = x1 + ux * t + nx * (r + WALL_R + 0.5);
+    const py = y1 + uy * t + ny * (r + WALL_R + 0.5);
+    addBall(px, py, r, { color });
+  };
+  put(0.06, 14, '#49d1ff');
+  put(0.16, 26, '#ff7a59');
+  put(0.28, 9, '#9dff8c');
+  toast('Piano inclinato — masse diverse, stessa accelerazione: a = g(sinθ − μcosθ).');
+}
+
+function sceneAvalanche() {
+  clearWorld();
+  setParams({ g: 9.81, e: 0.32, mu: 0.25, drag: 0.06 });
+  P.substeps = 10;
+  // imbuto
+  addWall(W * 0.02, H * 0.42, W * 0.42, H * 0.66);
+  addWall(W * 0.98, H * 0.42, W * 0.58, H * 0.66);
+  // gradini sotto l'imbuto
+  addWall(W * 0.30, H * 0.80, W * 0.62, H * 0.86);
+  addWall(W * 0.70, H * 0.86, W * 0.96, H * 0.78);
+  addWall(W * 0.06, H * 0.92, W * 0.34, H * 0.97);
+  // pioggia di palline
+  const N = 130;
+  for (let i = 0; i < N; i++) {
+    const r = 6 + Math.random() * 9;
+    const x = W * 0.16 + Math.random() * W * 0.68;
+    const y = H * 0.03 + Math.random() * H * 0.30;
+    addBall(x, y, r, { vx: (Math.random() - .5) * 60, vy: Math.random() * 40 });
+  }
+  toast('Valanga — 130 palline di massa diversa attraverso l\'imbuto.');
+}
+
+function sceneFloat() {
+  clearWorld();
+  setParams({ g: 9.81, e: 0.30, mu: 0.25, drag: 0.02,
+              fluidRho: 1.00, fluidLevel: 0.60, fluidVisc: 1 });
+  P.substeps = 12;
+  P.showIds = true;
+  const rhos = [0.24, 0.50, 0.70, 0.92, 1.00, 1.60, 2.70, 7.80];
+  const r = Math.min(24, W / (2.9 * rhos.length));
+  for (let i = 0; i < rhos.length; i++) {
+    const x = W * 0.09 + (W * 0.82) * (i / (rhos.length - 1));
+    addBall(x, H * 0.16, r, { density: rhos[i], color: COLORS[i % COLORS.length] });
+  }
+  toast('Galleggiamento in acqua (ρ = 1): ogni pallina si ferma con frazione immersa ρ_corpo/ρ_fluido.');
+}
+
+const scenes = { sc1: sceneNewton, sc2: sceneRamp, sc3: sceneAvalanche, sc4: sceneFloat };
+function loadScene(name) {
+  currentScene = name;
+  hist.ke.length = hist.pe.length = hist.tot.length = 0;
+  ui.springFrom = null;
+  setParams({ fluidRho: 0, fluidLevel: 0, fluidVisc: 1 });   // ogni scena parte nel vuoto
+  P.showIds = false;
+  scenes[name]();
+  syncUI();
+}
+
+function setParams(o) { Object.assign(P, o); }
+
+/* --------------------------------------------------------------- interfaccia */
+const ui = {
+  mode: 'idle', tool: 'ball',
+  sx: 0, sy: 0, mx: 0, my: 0, newR: 18,
+  grabbed: null, gvx: 0, gvy: 0, lastMx: 0, lastMy: 0,
+  springFrom: null, button: 0
+};
+const LAUNCH = 3.0;   // px/s di velocità per px di trascinamento
+
+const $ = id => document.getElementById(id);
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('on'), 3600);
+}
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  const rect = cv.getBoundingClientRect();
+  W = Math.max(200, Math.round(rect.width));
+  H = Math.max(200, Math.round(rect.height));
+  cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+  const cr = chartCv.getBoundingClientRect();
+  chartW = Math.max(120, Math.round(cr.width)); chartH = Math.round(cr.height) || 132;
+  chartCv.width = Math.round(chartW * DPR); chartCv.height = Math.round(chartH * DPR);
+  for (const b of world.balls) {
+    if (b.ghost) continue;
+    b.x = Math.min(Math.max(b.r, b.x), W - b.r);
+    b.y = Math.min(Math.max(b.r, b.y), H - b.r);
+  }
+}
+window.addEventListener('resize', resize);
+
+function pos(e) {
+  const r = cv.getBoundingClientRect();
+  return [e.clientX - r.left, e.clientY - r.top];
+}
+function ballAt(x, y, pad = 0) {
+  for (let i = world.balls.length - 1; i >= 0; i--) {
+    const b = world.balls[i];
+    const rr = (b.ghost ? 10 : b.r) + pad;
+    if ((x - b.x) ** 2 + (y - b.y) ** 2 <= rr * rr) return b;
+  }
+  return null;
+}
+function wallAt(x, y) {
+  for (let i = world.walls.length - 1; i >= 0; i--) {
+    const w = world.walls[i];
+    const [cx, cy] = closestOnSeg(x, y, w.x1, w.y1, w.x2, w.y2);
+    if (Math.hypot(x - cx, y - cy) <= WALL_R + 5) return w;
+  }
+  return null;
+}
+function springAt(x, y) {
+  for (let i = world.springs.length - 1; i >= 0; i--) {
+    const s = world.springs[i];
+    const [cx, cy] = closestOnSeg(x, y, s.a.x, s.a.y, s.b.x, s.b.y);
+    if (Math.hypot(x - cx, y - cy) <= 7) return s;
+  }
+  return null;
+}
+
+cv.addEventListener('contextmenu', e => e.preventDefault());
+
+cv.addEventListener('pointerdown', e => {
+  const [x, y] = pos(e);
+  ui.mx = ui.lastMx = ui.sx = x; ui.my = ui.lastMy = ui.sy = y;
+  ui.button = e.button;
+  cv.setPointerCapture(e.pointerId);
+
+  if (e.button === 2 || ui.tool === 'wall') { ui.mode = 'wall'; return; }
+  if (e.button !== 0) return;
+
+  if (ui.tool === 'erase') {
+    const b = ballAt(x, y, 2);
+    if (b) { removeBall(b); return; }
+    const s = springAt(x, y);
+    if (s) { world.springs.splice(world.springs.indexOf(s), 1); return; }
+    const w = wallAt(x, y);
+    if (w) { world.walls.splice(world.walls.indexOf(w), 1); return; }
+    return;
+  }
+
+  if (ui.tool === 'pin') {
+    const b = ballAt(x, y, 2);
+    if (b) { if (!b.ghost) { b.pinned = !b.pinned; b.vx = b.vy = 0; } }
+    else addBall(x, y, 6, { pinned: true, ghost: true });
+    return;
+  }
+
+  if (ui.tool === 'spring') {
+    let b = ballAt(x, y, 4);
+    if (!b) b = addBall(x, y, 6, { pinned: true, ghost: true });   // perno nel vuoto
+    if (!ui.springFrom) { ui.springFrom = b; toast('Ora clicca la seconda pallina (o il vuoto per un perno).'); }
+    else {
+      const s = addSpring(ui.springFrom, b);
+      if (s) toast(s.rigid ? 'Asta rigida creata.' : 'Molla creata (k = ' + s.k + ' N/m).');
+      ui.springFrom = null;
+    }
+    return;
+  }
+
+  // strumento "palla"
+  const hit = ballAt(x, y, 2);
+  if (hit && !hit.ghost) {
+    ui.mode = 'grab'; ui.grabbed = hit; hit.grabbed = true; ui.gvx = ui.gvy = 0;
+  } else if (hit && hit.ghost) {
+    ui.mode = 'grab'; ui.grabbed = hit; hit.grabbed = true; ui.gvx = ui.gvy = 0;
+  } else {
+    ui.mode = 'launch';
+    ui.newR = P.randomR ? Math.max(6, Math.round(P.radius * (0.6 + Math.random() * 0.9))) : P.radius;
+  }
+});
+
+cv.addEventListener('pointermove', e => {
+  const [x, y] = pos(e);
+  ui.mx = x; ui.my = y;
+  if (ui.mode === 'grab' && ui.grabbed) {
+    const b = ui.grabbed;
+    const dt = 1 / 60;
+    ui.gvx = 0.6 * ui.gvx + 0.4 * ((x - ui.lastMx) / dt);
+    ui.gvy = 0.6 * ui.gvy + 0.4 * ((y - ui.lastMy) / dt);
+    b.x = b.px = x; b.y = b.py = y;
+    b.vx = ui.gvx; b.vy = ui.gvy;
+  }
+  ui.lastMx = x; ui.lastMy = y;
+});
+
+function endPointer() {
+  const x = ui.mx, y = ui.my;
+  if (ui.mode === 'wall') {
+    const L = Math.hypot(x - ui.sx, y - ui.sy);
+    if (L > 12) addWall(ui.sx, ui.sy, x, y);
+  } else if (ui.mode === 'launch') {
+    const dx = x - ui.sx, dy = y - ui.sy;
+    addBall(ui.sx, ui.sy, ui.newR, { vx: dx * LAUNCH, vy: dy * LAUNCH });
+  } else if (ui.mode === 'grab' && ui.grabbed) {
+    const b = ui.grabbed;
+    b.grabbed = false;
+    const sp = Math.hypot(ui.gvx, ui.gvy);
+    const f = sp > 3000 ? 3000 / sp : 1;
+    b.vx = ui.gvx * f; b.vy = ui.gvy * f;
+    ui.grabbed = null;
+  }
+  ui.mode = 'idle';
+}
+cv.addEventListener('pointerup', endPointer);
+cv.addEventListener('pointercancel', endPointer);
+
+cv.addEventListener('dblclick', e => {
+  const [x, y] = pos(e);
+  const b = ballAt(x, y, 2);
+  if (b && !b.ghost) { b.pinned = !b.pinned; b.vx = b.vy = 0; toast(b.pinned ? 'Pallina fissata.' : 'Pallina liberata.'); }
+});
+
+cv.addEventListener('wheel', e => {
+  e.preventDefault();
+  const v = Math.max(6, Math.min(48, P.radius + (e.deltaY < 0 ? 2 : -2)));
+  P.radius = v; $('sR').value = v; $('vR').textContent = v + ' px';
+}, { passive: false });
+
+/* pannello */
+function bindRange(id, valId, key, fmt) {
+  const el = $(id), lab = $(valId);
+  const upd = () => { P[key] = parseFloat(el.value); lab.textContent = fmt(P[key]); };
+  el.addEventListener('input', upd); upd();
+}
+bindRange('sTime', 'vTime', 'timeScale', v => v.toFixed(2) + '×');
+bindRange('sG', 'vG', 'g', v => v.toFixed(2) + ' m/s²');
+bindRange('sE', 'vE', 'e', v => v.toFixed(2));
+bindRange('sMu', 'vMu', 'mu', v => v.toFixed(2));
+bindRange('sDrag', 'vDrag', 'drag', v => v.toFixed(2));
+bindRange('sR', 'vR', 'radius', v => v.toFixed(0) + ' px');
+bindRange('sK', 'vK', 'k', v => v.toFixed(0) + ' N/m');
+bindRange('sSD', 'vSD', 'springDamp', v => v.toFixed(1));
+bindRange('sRho', 'vRho', 'bodyRho', v => v.toFixed(2) + ' kg/m²');
+bindRange('sFR', 'vFR', 'fluidRho', v => v.toFixed(2) + ' kg/m²');
+bindRange('sFL', 'vFL', 'fluidLevel', v => Math.round(v * 100) + ' %');
+bindRange('sFV', 'vFV', 'fluidVisc', v => v.toFixed(2));
+
+$('sRho').addEventListener('input', markPresets);
+$('sFR').addEventListener('input', markPresets);
+$('sFL').addEventListener('input', markPresets);
+
+$('btnRhoAll').addEventListener('click', () => {
+  let n = 0;
+  for (const b of world.balls) {
+    if (b.ghost) continue;
+    const rm = b.r / PPM;
+    b.density = P.bodyRho; b.m = Math.PI * rm * rm * P.bodyRho; n++;
+  }
+  toast('Densità ρ = ' + P.bodyRho.toFixed(2) + ' applicata a ' + n + ' palline.');
+});
+
+document.querySelectorAll('#matPresets [data-rho]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    P.bodyRho = parseFloat(btn.dataset.rho);
+    $('sRho').value = P.bodyRho; $('vRho').textContent = P.bodyRho.toFixed(2) + ' kg/m²';
+    markPresets();
+  });
+});
+document.querySelectorAll('#fluidPresets [data-fr]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    P.fluidRho = parseFloat(btn.dataset.fr);
+    P.fluidLevel = parseFloat(btn.dataset.fl);
+    $('sFR').value = P.fluidRho; $('vFR').textContent = P.fluidRho.toFixed(2) + ' kg/m²';
+    $('sFL').value = P.fluidLevel; $('vFL').textContent = Math.round(P.fluidLevel * 100) + ' %';
+    markPresets();
+  });
+});
+
+function markPresets() {
+  document.querySelectorAll('#matPresets [data-rho]').forEach(b =>
+    b.classList.toggle('on', Math.abs(parseFloat(b.dataset.rho) - P.bodyRho) < 0.005));
+  document.querySelectorAll('#fluidPresets [data-fr]').forEach(b =>
+    b.classList.toggle('on', Math.abs(parseFloat(b.dataset.fr) - P.fluidRho) < 0.005 &&
+                             Math.abs(parseFloat(b.dataset.fl) - P.fluidLevel) < 0.005));
+}
+
+$('sK').addEventListener('input', () => { for (const s of world.springs) if (!s.rigid) s.k = P.k; });
+$('sSD').addEventListener('input', () => { for (const s of world.springs) if (!s.rigid) s.damp = P.springDamp; });
+
+document.querySelectorAll('[data-g]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    P.g = parseFloat(btn.dataset.g);
+    $('sG').value = P.g; $('vG').textContent = P.g.toFixed(2) + ' m/s²';
+    syncUI();
+  });
+});
+document.querySelectorAll('#tools .tool').forEach(btn => {
+  btn.addEventListener('click', () => {
+    ui.tool = btn.dataset.mode;
+    ui.springFrom = null;
+    document.querySelectorAll('#tools .tool').forEach(b => b.classList.toggle('on', b === btn));
+    cv.style.cursor = ui.tool === 'erase' ? 'not-allowed' : 'crosshair';
+  });
+});
+$('cRigid').addEventListener('change', e => P.rigid = e.target.checked);
+$('cRnd').addEventListener('change', e => P.randomR = e.target.checked);
+$('cVec').addEventListener('change', e => P.showVec = e.target.checked);
+$('cGrid').addEventListener('change', e => P.showGrid = e.target.checked);
+$('cTrail').addEventListener('change', e => { P.showTrail = e.target.checked; if (!e.target.checked) for (const b of world.balls) b.trail.length = 0; });
+$('cIds').addEventListener('change', e => P.showIds = e.target.checked);
+
+$('btnPause').addEventListener('click', togglePause);
+$('btnStep').addEventListener('click', () => { P.paused = true; syncUI(); step(1 / 120); sampleEnergy(); });
+$('btnSlow').addEventListener('click', () => {
+  P.timeScale = P.timeScale > 0.3 ? 0.15 : 1;
+  $('sTime').value = P.timeScale; $('vTime').textContent = P.timeScale.toFixed(2) + '×';
+  syncUI();
+});
+$('sc1').addEventListener('click', () => loadScene('sc1'));
+$('sc2').addEventListener('click', () => loadScene('sc2'));
+$('sc3').addEventListener('click', () => loadScene('sc3'));
+$('sc4').addEventListener('click', () => loadScene('sc4'));
+$('scReset').addEventListener('click', () => loadScene(currentScene));
+$('scClear').addEventListener('click', () => {
+  clearWorld(); hist.ke.length = hist.pe.length = hist.tot.length = 0; ui.springFrom = null;
+  toast('Area svuotata: crea le tue palline con un clic.');
+});
+
+function togglePause() { P.paused = !P.paused; syncUI(); }
+
+function syncUI() {
+  $('btnPause').textContent = P.paused ? '▶ Riprendi' : '⏸ Pausa';
+  $('btnPause').classList.toggle('on', P.paused);
+  $('pausebadge').classList.toggle('on', P.paused);
+  $('btnSlow').classList.toggle('on', P.timeScale < 0.5);
+  $('sG').value = P.g; $('vG').textContent = P.g.toFixed(2) + ' m/s²';
+  $('sE').value = P.e; $('vE').textContent = P.e.toFixed(2);
+  $('sMu').value = P.mu; $('vMu').textContent = P.mu.toFixed(2);
+  $('sDrag').value = P.drag; $('vDrag').textContent = P.drag.toFixed(2);
+  $('sRho').value = P.bodyRho; $('vRho').textContent = P.bodyRho.toFixed(2) + ' kg/m²';
+  $('sFR').value = P.fluidRho; $('vFR').textContent = P.fluidRho.toFixed(2) + ' kg/m²';
+  $('sFL').value = P.fluidLevel; $('vFL').textContent = Math.round(P.fluidLevel * 100) + ' %';
+  $('sFV').value = P.fluidVisc; $('vFV').textContent = P.fluidVisc.toFixed(2);
+  $('cIds').checked = P.showIds;
+  $('cVec').checked = P.showVec; $('cGrid').checked = P.showGrid; $('cTrail').checked = P.showTrail;
+  document.querySelectorAll('[data-g]').forEach(b =>
+    b.classList.toggle('on', Math.abs(parseFloat(b.dataset.g) - P.g) < 0.005));
+  markPresets();
+}
+
+window.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  const k = e.key.toLowerCase();
+  if (k === ' ') { e.preventDefault(); togglePause(); }
+  else if (k === '.') { P.paused = true; syncUI(); step(1 / 120); sampleEnergy(); }
+  else if (k === 's') $('btnSlow').click();
+  else if (k === 'v') { P.showVec = !P.showVec; $('cVec').checked = P.showVec; }
+  else if (k === 'g') { P.showGrid = !P.showGrid; $('cGrid').checked = P.showGrid; }
+  else if (k === 'r') loadScene(currentScene);
+  else if (k === 'c') $('scClear').click();
+  else if (k === '1') loadScene('sc1');
+  else if (k === '2') loadScene('sc2');
+  else if (k === '3') loadScene('sc3');
+  else if (k === '4') loadScene('sc4');
+});
+
+/* ------------------------------------------------------------------ loop */
+let last = performance.now(), fps = 60, acc = 0, frames = 0;
+
+function frame(now) {
+  let raw = (now - last) / 1000;
+  last = now;
+  if (!isFinite(raw) || raw < 0) raw = 0;
+  raw = Math.min(raw, 1 / 20);
+
+  frames++; acc += raw;
+  if (acc > 0.35) { fps = frames / acc; frames = 0; acc = 0; }
+
+  if (!P.paused) {
+    const dt = raw * P.timeScale;
+    if (dt > 0) step(dt);
+    if (P.showTrail) {
+      for (const b of world.balls) {
+        if (b.ghost) continue;
+        b.trail.push(b.x, b.y);
+        if (b.trail.length > 90) b.trail.splice(0, b.trail.length - 90);
+      }
+    }
+    sampleEnergy();
+  }
+
+  render();
+  drawChart();
+
+  let vmax = 0;
+  for (const b of world.balls) if (!b.ghost) vmax = Math.max(vmax, Math.hypot(b.vx, b.vy));
+  $('hud').innerHTML =
+    '<b>' + fps.toFixed(0) + '</b> fps &nbsp; <b>' +
+    world.balls.filter(b => !b.ghost).length + '</b> palline &nbsp; <b>' +
+    world.walls.length + '</b> muri &nbsp; <b>' +
+    world.springs.length + '</b> molle<br>' +
+    'v max <b>' + (vmax / PPM).toFixed(2) + '</b> m/s &nbsp; contatti <b>' + nContacts + '</b>' +
+    (P.timeScale < 0.99 ? ' &nbsp; <b style="color:#ffb648">rallentatore ' + P.timeScale.toFixed(2) + '×</b>' : '');
+
+  requestAnimationFrame(frame);
+}
+
+/* --------------------------------------------------------------- avvio */
+resize();
+loadScene('sc1');
+syncUI();
+requestAnimationFrame(frame);
+
+// hook per test automatici
+window.SIM = { P, world, step, energy, loadScene, addBall, addWall, addSpring, clearWorld,
+               subArea, buoyG, fluidSurfaceY, syncUI,
+               get contacts() { return nContacts; }, dims: () => ({ W, H }), PPM };
+</script>
+</body>
+</html>
