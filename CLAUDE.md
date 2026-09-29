@@ -15,7 +15,8 @@ Pubblicato con GitHub Pages: https://alessandrotrino-creator.github.io/laborator
 | File | Ruolo |
 |---|---|
 | `index.html` | Pagina di scelta tra le versioni (solo HTML e CSS, nessuno script). |
-| `versione2.html` | Versione attuale di sviluppo: **è qui che si lavora**. |
+| `versione3.html` | Versione attuale di sviluppo: **è qui che si lavora**. |
+| `versione2.html` | Versione precedente, congelata. |
 | `versione1.html` | Versione originale, congelata. **Non modificarla.** |
 | `README.md` | Descrizione per i collaboratori, con la cronologia degli aggiornamenti. |
 
@@ -26,7 +27,9 @@ Tienilo così: deve funzionare aprendo il file e con il caricamento via web di G
 `index.html`. Quella precedente resta com'è finché l'insegnante non decide. Dopo ogni modifica aggiorna la
 sezione "Ultimi aggiornamenti" del README.
 
-## Architettura di `versione2.html`
+## Architettura di `versione3.html`
+
+(`versione2.html` è uguale, ma senza il sistema delle modalità descritto al punto 7.)
 
 Motore scritto da zero, in un solo `<script>`. Sezioni nell'ordine in cui compaiono:
 
@@ -42,9 +45,27 @@ Motore scritto da zero, in un solo `<script>`. Sezioni nell'ordine in cui compai
    - velocità ricavate dallo spostamento → `velocityPass` (restituzione e attrito dinamico).
 4. **Rendering su canvas:** `render`, `drawSpring`, `drawFluid`, `drawLabels`.
 5. **Scene:** `sceneNewton`, `sceneRamp`, `sceneAvalanche`, `sceneFloat`, `sceneEgg`, `sceneIceberg`,
-   `sceneMercury`, registrate nella mappa `scenes` e caricate da `loadScene`.
+   `sceneMercury`, `sceneOsc`, `sceneFree`, registrate nella mappa `scenes` e caricate da `loadScene`.
+   Ogni scena imposta la sua fisica di partenza con `setParams()`. Le variabili di costruzione (numero di
+   palline, angoli, k dei fili, massa della molla…) stanno in `SP`, con i valori iniziali in `SP_DEFAULTS`.
 6. **Interfaccia:** gestori del puntatore (strumenti palla, muro, molla, perno, elimina), pannello e
    sezione galleggiamento (`updateFloatUI` ridisegna lista, chip, verdetto e riferimenti).
+7. **Modalità (solo v3):** `MODES` descrive ogni esperimento con `scene`, `title`, `units` (i blocchi del
+   pannello da mettere in evidenza, in ordine) e `info()` (testo "cosa osservare" con i valori del momento).
+   `MODE_OF` collega ogni scena alla sua modalità (per esempio `ex2`–`ex4` → `float`).
+   - Ogni blocco del pannello ha l'attributo `data-unit`. All'avvio riceve un segnaposto (commento DOM) come "casa".
+   - `applyMode` sposta in `#featured` i blocchi della modalità e rimette gli altri a casa, dentro `<details id="others">`;
+     nasconde le sezioni rimaste vuote. I blocchi propri di un solo esperimento (`nw`, `rp`, `av`, `osc`)
+     hanno casa in `#sceneHome`, che è nascosto.
+   - Per aggiungere una variabile a un esperimento: crea il blocco con `data-unit` e aggiungi la sua chiave in
+     `MODES[...].units`. **Non duplicare i controlli**: ogni `id` esiste una volta sola e viene spostato.
+   - `enterMode(scene)` (pulsanti degli esperimenti, tasti 1–6) riporta `SP` ai valori iniziali della modalità.
+     `rebuildScene()` (↺ Ricomincia, tasto R, cursori di costruzione) ricostruisce la scena tenendo i valori
+     scelti dall'utente (lista `KEEP`).
+   - Nella molla che oscilla, `OSC = { pin, ball, spring }`: i cursori la modificano dal vivo e `drawOscGuides`
+     disegna le linee "molla a riposo" ed "equilibrio".
+   - Il nascondi-risposte del galleggiamento usa la classe `hideAns` su `#panel`, perché i blocchi possono
+     trovarsi fuori da `#secFloat`.
 
 ### Scelte di fisica da non rompere
 
@@ -69,7 +90,10 @@ Motore scritto da zero, in un solo `<script>`. Sezioni nell'ordine in cui compai
 ## Come provare le modifiche
 
 - Nella pagina c'è un hook per i test: `window.SIM`, con `P`, `world`, `step(dt)`, `energy()`, `loadScene`,
-  `addBall`, `addSpring`, `subArea`, `fluidSurfaceY`, `dims()` e `PPM`.
+  `addBall`, `addSpring`, `subArea`, `fluidSurfaceY`, `dims()` e `PPM`; nella v3 anche `SP`, `rebuildScene`,
+  `enterMode`, `osc` e `mode`.
+- In v3 i pulsanti degli esperimenti hanno `data-scene` (`#modes .mode`): cliccarli è il modo più fedele di
+  provare una modalità. Per controllare cosa è in evidenza, leggi i `[data-unit]` dentro `#featured`.
 - Per i controlli numerici usa `SIM.step(1/60)` in un ciclo, non il tempo reale: `requestAnimationFrame`
   rallenta quando la finestra è nascosta.
 - Controlli utili dopo una modifica alla fisica:
@@ -87,6 +111,9 @@ Quando prepari dei file, consegnali con i nomi definitivi e scrivi quali caricar
 
 ## Cronologia recente
 
+- **2026-09-29:** versione 3. Pannello per esperimento (6 modalità con solo le variabili pertinenti e il
+  riquadro "cosa osservare"); variabili di costruzione per pendolo, piano inclinato e valanga; nuovo
+  esperimento "Molla che oscilla" (periodo verificato contro 2π√(m/k)).
 - **2026-09-29:** versione 2. Galleggiamento con materiali e liquidi reali, verdetto e linea dell'acqua,
   modalità previsione, esperimenti pronti, molle stabili (smorzamento implicito) con catene, selezione e L₀
   regolabile, pagina di scelta tra le versioni. Dettagli nel README.
